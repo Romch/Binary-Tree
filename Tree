@@ -1,0 +1,463 @@
+// Бинарное дерево.cpp : Defines the entry point for the console application.
+//
+
+#include "stdafx.h"
+#include <string.h>
+#include <stdlib.h>
+
+#define VALUE_LENGTH 20
+
+typedef struct Node
+{
+	int key;
+	char value[VALUE_LENGTH];
+	Node* left;
+	Node* right;
+}Node;
+
+void PrintNode(Node* item, int depth);
+Node* CreateNode(int , char[]);
+Node* InsertNode(Node*, Node*);
+Node* CopyNode(Node*, Node*);
+void PrintIndent(int);
+Node* FindNode(Node*, int);
+Node* RemoveNode(Node*, int, Node*);
+Node* FindMinNode(Node*);
+Node* GetNextNode(Node*, int);
+void PrintNodeOnly(Node*);
+Node* FindMaxNode(Node*);
+
+void PrintFileNode(FILE*, Node*);
+Node* ScanFileNode(FILE*);
+
+Node* TurnRight(Node*);
+Node* TurnLeft(Node*);
+Node* TurnLR(Node*);
+Node* TurnRL(Node*);
+Node* TreeBalance(Node*);
+int FindDepth(Node*);
+
+Node* FullTreeBalance(Node*);
+
+int _tmain(int argc, _TCHAR* argv[])
+{
+	Node* current;
+	Node* root;
+	Node* head;
+	FILE* file;
+
+	fopen_s(&file, "Tree.txt", "r");
+
+	root = ScanFileNode(file);
+	while ((current = ScanFileNode(file)) != NULL)
+		current = InsertNode(root, current);
+	PrintNode(root, 0);
+	root = FullTreeBalance(root);
+	PrintNode(root, 0);
+	getchar();
+
+	fclose(file);
+	return 0;
+}
+
+void PrintNode(Node* item, int depth)
+{
+	PrintIndent(depth);
+	printf("%d : %s\n", item->key, item->value);
+	if (item->left != NULL)
+	{
+		PrintIndent(depth);
+		printf("left\n");
+		PrintNode(item->left, depth + 1);
+	}
+	if (item->right != NULL)
+	{
+		PrintIndent(depth);
+		printf("right\n");
+		PrintNode(item->right, depth + 1);
+	}
+}
+
+Node* CreateNode(int key, char value[20])
+{
+	Node* current;
+	current = (Node*)malloc(sizeof(Node));
+	current->key = key;
+	strcpy_s(current->value, sizeof(current->value), value);
+	current->left = NULL;
+	current->right = NULL;
+	return current;
+}
+
+Node* InsertNode(Node* root, Node* newItem)    //Добавление элемента(INSERT)  Дано: дерево Т и пара(K, V).
+{
+	//Если дерево пусто, заменить его на дерево с одним корневым узлом((K, V), null, null) и остановиться.
+	if (root == NULL)
+	{
+		root = newItem;							
+		return root;
+	}
+	else	//Иначе сравнить K с ключом корневого узла X.
+	{ 
+		//Если K>X, циклически добавить(K, V) в правое поддерево Т.
+		if (newItem->key > root->key)                       
+		{
+			if (root->right == NULL)
+			{
+				root->right = newItem;
+				return newItem;
+			}
+			return InsertNode(root->right, newItem);
+		}
+
+		//Если K<X, циклически добавить(K, V) в левое поддерево Т.
+		else if (newItem->key < root->key)   
+		{
+			if (root->left == NULL)
+			{
+				root->left = newItem;
+				return newItem;
+			}
+			return InsertNode(root->left, newItem);
+		}
+		//Если K = X, заменить V текущего узла новым значением.
+		else if (newItem->key == root->key)						
+		{
+			strcpy_s(newItem->value, 20, root->value);
+			free(newItem);
+			return root;
+		}
+		else return NULL;
+	}
+}
+
+Node* CopyNode(Node* dst, Node* src)
+{
+	dst = src;
+	free(src);
+	return dst;
+}
+void PrintIndent(int depth)
+{
+	int i;
+	for (i = 0; i < depth; ++i)
+		printf("  ");
+}
+Node* FindNode(Node* root, int key)
+{
+	//Если дерево пусто, сообщить, что узел не найден, и остановиться.
+	if (root == NULL)
+		return NULL;
+	else //Иначе сравнить K со значением ключа корневого узла X. 
+	{
+		//Если K=X, выдать ссылку на этот узел и остановиться.
+		if (root->key == key)
+			return root;
+		//Если K>X, рекурсивно искать ключ K в правом поддереве Т.
+		else if (root->key > key)
+		{
+			root = root->right;
+			return FindNode(root, key);
+		}
+		//Если K<X, рекурсивно искать ключ K в левом поддереве Т.
+		else if (root->key < key)
+		{
+			root = root->left;
+			return FindNode(root, key);
+		}
+		else return NULL;
+	}
+}
+
+Node* RemoveNode(Node* root, int key, Node* parent)
+{	
+	//Если дерево T пусто, остановиться
+	if (root == NULL)
+		return root;
+	else //Иначе сравнить K с ключом X корневого узла
+	{
+		//Если K>X, циклически удалить K из правого поддерева Т
+		if (root->key < key)
+		{
+			root->right = RemoveNode(root->right, key, root);
+			return root;
+		}
+
+		//Если K<X, циклически удалить K из левого поддерева Т
+		if (root->key > key)
+		{		
+			root->left = RemoveNode(root->left, key, root);
+			return root;
+		}
+
+		//Если K=X, то необходимо рассмотреть три случая.
+		else
+		{
+			Node* current = NULL;
+
+			//Если обоих детей нет, то удаляем текущий узел и обнуляем ссылку на него у родительского узла;
+			if (root->right == NULL && root->left == NULL)
+			{
+				if (parent->right == root)
+					parent->right = NULL;
+				else 
+					parent->left = NULL;
+				free(root);
+				return current;
+			}
+
+			//Если одного из детей нет, то значения полей ребёнка m ставим вместо соответствующих значений корневого узла, 
+			//затирая его старые значения, и освобождаем память, занимаемую узлом m;
+			if (root->left == NULL)
+			{
+				root->key = root->right->key;
+				strcpy_s(root->value, sizeof(root->value), root->right->value);
+				root->left = root->right->left;
+				root->right = root->right->right;
+				free(root->right);
+				return root;
+			}
+			if (root->right == NULL)
+			{
+				root->key = root->left->key;
+				strcpy_s(root->value, sizeof(root->value), root->left->value);
+				root->left = root->left->left;
+				root->right = root->left->right;
+				free(root->left);
+				return root;
+			}
+			else //Если оба ребёнка присутствуют, то 
+			{
+				current = root->right;
+
+				//Если левый узел m правого поддерева отсутствует(n->right->left)
+				if (current->left == NULL)
+				{
+					//смещаем правый узел вверх и добавляем к нему левый
+					current->left = root->left;
+					free(root);
+					return current;
+				}
+				else
+				{
+
+					//возьмем самый левый узел m, правого поддерева n->right;
+					while (current->left != NULL)
+						current = current->left;
+
+					//скопируем данные(кроме ссылок на дочерние элементы) из m в n;
+					root->key = current->key;
+					strcpy_s(root->value, sizeof(root->value), current->value);
+
+					//рекурсивно удалим узел m.
+					root->right = RemoveNode(root->right, root->key, root);
+					return root;
+				}
+			}
+		}
+	}
+}
+
+Node* FindMinNode(Node* root)
+{
+	while (root->left != NULL)
+		root = root->left;
+	return root;
+}
+
+
+Node* GetNextNode(Node* root, int prevKey)
+{
+	Node* curNode;
+	Node* nextNode;
+
+	//если искомый ключ меньше данного, то рекурсивно ищем в левом поддереве
+	if (prevKey < root->key)
+	{
+		curNode = GetNextNode(root->left, prevKey);
+		if (curNode->key == prevKey)
+			return root;
+		if (curNode->key > prevKey)
+			return curNode;
+		if (prevKey > curNode->key)
+			return root;
+
+	}
+
+	//если искомый ключ больше данного, то рекурсивно ищем в правом поддереве
+	if (prevKey > root->key)
+	{
+
+		curNode = GetNextNode(root->right, prevKey);
+		if (curNode->key == prevKey)
+			return root;
+		if (curNode->key > prevKey)
+			return curNode;
+		if (prevKey > curNode->key)
+			return root;
+		
+	}
+	else
+	{
+		if (root->right != NULL)
+		{
+			nextNode = FindMinNode(root->right);
+			return nextNode;
+		}
+		else
+			return root;
+	}
+}
+
+void PrintNodeOnly(Node* node)
+{
+	printf("%d : %s\n", node->key, node->value);
+}
+
+Node* FindMaxNode(Node* root)
+{
+	while (root->right != NULL)
+		root = root->right;
+	return root;
+}
+
+void PrintFileNode(FILE* file, Node* item)
+{
+	fprintf(file, "%d %s\n", item->key, item->value);
+}
+
+Node* ScanFileNode(FILE* file)
+{
+	int key;
+	char value[VALUE_LENGTH];
+	int result = fscanf_s(file, "%d %s\n", &key, value, VALUE_LENGTH);
+	if (result < 2)
+		return NULL;
+	return CreateNode(key, value);
+}
+
+Node* TurnRight(Node* root)
+{
+	Node* newroot = root->right;
+	root->right = newroot->left;
+	newroot->left = root;
+	return newroot;
+}
+Node* TurnLeft(Node* root )
+{
+	Node* newroot = root->left;
+	root->left = newroot->right;
+	newroot->right = root;
+	return newroot;
+}
+Node* TurnLeftRight(Node* root )
+{
+	Node* newroot = root->left;
+	newroot = newroot->right;
+	root->left->right = newroot->left;
+	newroot->left = root->left;
+	root->left = newroot->right;
+	newroot->right = root;
+	return newroot;
+}
+Node* TurnRightLeft(Node* root)
+{
+	Node* newroot = root->right;
+	newroot = newroot->left;
+	root->right->left = newroot->right;
+	newroot->right = root->right;
+	root->right = newroot->left;
+	newroot->left = root;
+	return newroot;
+}
+
+Node* TreeBalance(Node* root)
+{
+	Node* node;
+	int hLeft, hRight;
+	if (root == NULL)
+		return NULL;
+	/*if (root->left == NULL)
+	{
+		root->right = TreeBalance(root->right);
+		
+	}
+	if (root->right == NULL)
+	{
+		root->left = TreeBalance(root->left);
+
+	}*/
+	else
+	{
+		hLeft = FindDepth(root->left);
+		hRight = FindDepth(root->right);
+		if (hLeft == hRight || (hLeft - hRight) == 1 || (hLeft - hRight) == (-1))
+			return root;
+		while (/*hLeft != hRight || (hLeft - hRight) != 1 || (hLeft - hRight) != (-1))*/ (hLeft - hRight) >= 2 || (hLeft - hRight) <= (-2))
+		{
+			if (hLeft > hRight)
+			{
+				node = root->left;
+				hLeft = FindDepth(node->left);
+				hRight = FindDepth(node->right);
+				if (hLeft > hRight)
+				{
+					root = TurnLeft(root);
+				}
+				else
+				{
+					root = TurnLeftRight(root);
+				}
+			}
+			else
+			{
+				node = root->right;
+				hLeft = FindDepth(node->left);
+				hRight = FindDepth(node->right);
+				if (hLeft < hRight)
+				{
+					root = TurnRight(root);
+				}
+				else
+				{
+					root = TurnRightLeft(root);
+				}
+			}
+			hLeft = FindDepth(root->left);
+			hRight = FindDepth(root->right);
+		}
+		return root;
+	}
+}
+
+int FindDepth(Node* root)
+{
+	int depht;
+	if (root == NULL)
+		return 0;
+	if (root->left != NULL)
+	{
+		depht = FindDepth(root->left);
+		depht = depht + 1;
+		return depht;
+	}
+	if (root->right != NULL)
+	{
+		depht = FindDepth(root->right);
+		depht = depht + 1;
+		return depht;
+	}
+	return 1;
+}
+
+
+Node* FullTreeBalance(Node* root)
+{
+	root = TreeBalance(root);
+	if (root->left != NULL)
+		root->left = FullTreeBalance(root->left);
+	if (root->right != NULL)
+		root->right = FullTreeBalance(root->right);
+	
+	return root;
+}
